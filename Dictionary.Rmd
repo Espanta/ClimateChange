@@ -2,7 +2,7 @@
 title: "Data Dictionary"
 author: "Saeid Abolfazli"
 date: "May 2, 2016"
-output: html_document
+output: pdf_document
 ---
 The file "data/climate_change.csv" contains climate data from **May 1983** to **December 2008**. The data and below description are provided by team of [MITx: 15.071x The Analytics Edge](https://courses.edx.org/courses/course-v1:MITx+15.071x_3+1T2016/courseware/f8d71d64418146f18a066d7f0379678c/60d93a44280348d7a0a16663f92af0f7/) @ EDX
 
@@ -25,10 +25,14 @@ The available variables include:
 
 * TSI is expressed in **W/m2** (the rate at which the sun's energy is deposited per unit area)
 
+### First Problem:
+We are interested in how changes in these variables affect future temperatures, as well as how well these variables explain temperature changes so far. To do this, first read the dataset climate_change.csv into R.
+
 ## Data Structure
-```{r echo=FALSE}
+```{r}
 CC<-read.csv("data/climate_change.csv")
 ```
+
 ```{r}
 str(CC)
 ```
@@ -41,4 +45,109 @@ summary(CC)
 ```
 
 As you can see dataset includes **`r dim(CC)[1]`** observations and **`r dim(CC)[2]`** features, namely **`r paste0(names(CC))`**.
+
+
+Then, split the data into a training set, consisting of all the observations up to and including 2006, and a testing set consisting of the remaining years (hint: use subset). A training set refers to the data that will be used to build the model (this is the data we give to the lm() function), and a testing set refers to the data we will use to test our predictive ability.
+
+```{r }
+trainingset <- subset(CC, Year <= 2006)
+#testingset <- subset(CC, Year > 2006)
+testingset <- CC[CC$Year != trainingset$Year,]
+```
+
+Next, build a linear regression model to predict the dependent variable Temp, using MEI, CO2, CH4, N2O, CFC.11, CFC.12, TSI, and Aerosols as independent variables (Year and Month should NOT be used in the model). Use the training set to build the model.
+
+```{r}
+Model1 <- lm(Temp ~ MEI + CO2 + CH4 + N2O + CFC.11 + CFC.12 + TSI + Aerosols, data = trainingset)
+summary(Model1)
+```
+
+Enter the model R2 (the "Multiple R-squared" value): **0.7509**
+
+## Problems 1.2:
+Which variables are significant in the model?
+
+1. MEI
+2. CO2
+3. CH4
+4. N2O
+5. CFC.11
+6. CFC.12
+7. TSI
+8. Aerosols
+
+**Answer is: 1, 2,5,6,7,8**
+
+## Problem 2.1
+Current scientific opinion is that nitrous oxide and CFC-11 are greenhouse gases: gases that are able to trap heat from the sun and contribute to the heating of the Earth. However, the regression coefficients of both the N2O and CFC-11 variables are negative, indicating that increasing atmospheric concentrations of either of these two compounds is associated with lower global temperatures.
+
+Which of the following is the simplest correct explanation for this contradiction?
+
+1. Climate scientists are wrong that N2O and CFC-11 are greenhouse gases - this regression analysis constitutes part of a disproof.  
+2. There is not enough data, so the regression coefficients being estimated are not accurate.
+3. All of the gas concentration variables reflect human development - N2O and CFC.11 are correlated with other variables in the data set. All of the gas concentration variables reflect human development - N2O and CFC.11 are correlated with other variables in the data set. - correct
+
+**Answer is: 3**
+
+## Problem 2.2
+Compute the correlations between all the variables in the training set. Which of the following independent variables is N2O highly correlated with (absolute correlation greater than 0.7)? Select all that apply.
+
+```{r}
+cor(trainingset)
+```
+**Answer is: CO2, CH4, CFC.12**
+
+Which of the following independent variables is CFC.11 highly correlated with? Select all that apply.
+
+**Answer is CH4,CFC.12**
+
+# Problem 3 - Simplifying the Model
+
+(2 points possible)
+Given that the correlations are so high, let us focus on the N2O variable and build a model with only MEI, TSI, Aerosols and N2O as independent variables. Remember to use the training set to build the model.
+
+```{r}
+Model2 <- lm(Temp ~ MEI + TSI + Aerosols + N2O, data = trainingset)
+summary(Model2)
+```
+Enter the coefficient of N2O in this reduced model: **2.532e-02 **
+
+How does this compare to the coefficient in the previous model with all of the variables?
+** The R-squared is decreased**
+
+Enter the model R2: **0.7261**
+
+
+#Problem 4 - Automatically Building the Model
+
+We have many variables in this problem, and as we have seen above, dropping some from the model does not decrease model quality. R provides a function, step, that will automate the procedure of trying different combinations of variables to find a good compromise of model simplicity and R2. This trade-off is formalized by the Akaike information criterion (AIC) - it can be informally thought of as the quality of the model with a penalty for the number of variables in the model.
+
+The step function has one argument - the name of the initial model. It returns a simplified model. Use the step function in R to derive a new model, with the full model as the initial model (HINT: If your initial full model was called "climateLM", you could create a new model with the step function by typing step(climateLM). Be sure to save your new model to a variable name so that you can look at the summary. For more information about the step function, type ?step in your R console.)
+
+```{r}
+Model_UsigStep <- step(Model1)
+summary(Model_UsigStep)
+```
+Enter the R2 value of the model produced by the step function: **0.7508**
+
+**NOTE:**It is interesting to note that the step function does not address the collinearity of the variables, except that adding highly correlated variables will not improve the R2 significantly. The consequence of this is that the step function will not necessarily produce a very interpretable model - just a model that has balanced quality and simplicity for a particular weighting of quality and simplicity (AIC).
+
+
+# Problem 5 - Testing on Unseen Data
+
+We have developed an understanding of how well we can fit a linear regression to the training data, but does the model quality hold when applied to unseen data?
+
+Using the model produced from the step function, calculate temperature predictions for the testing data set, using the predict function.
+
+```{r}
+temp_pred <- predict(Model_UsigStep,newdata=testingset)
+```
+Enter the testing set R2:
+```{r}
+SSE <- sum((testingset$Temp - temp_pred)^2)
+SST <- sum((testingset$Temp-mean(trainingset$Temp))^2)
+R_squared <- 1 - SSE/SST
+R_squared
+```
+  
 
